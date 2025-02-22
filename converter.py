@@ -1,5 +1,8 @@
 from discord import Client, Intents
 import re
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 # Functions
 def c_to_f(c_temp):
@@ -90,4 +93,4 @@ intents.message_content = True
 
 # This runs the bot
 client = Client(intents = intents)
-client.run(process.env.DISCORD_TOKEN)
+client.run(os.getenv("DISCORD_TOKEN"))
