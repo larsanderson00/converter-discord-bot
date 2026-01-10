@@ -2,38 +2,51 @@ from discord import Client, Intents
 import re
 from dotenv import load_dotenv
 import os
+import requests
 load_dotenv()
 
 # Functions
 def c_to_f(c_temp):
-    c_temp = int(c_temp.lower().replace('c', ''))
+    c_temp = float(c_temp.lower().replace('c', ''))
     f_temp = (c_temp * 9/5) + 32
     return f"{c_temp}C -> {round(f_temp, 1)}F"
 
 def f_to_c(f_temp):
-    f_temp = int(f_temp.lower().replace('f', ''))
+    f_temp = float(f_temp.lower().replace('f', ''))
     c_temp = (f_temp - 32) * 5/9
     return f"{f_temp}F -> {round(c_temp, 1)}C"
 
-def cad_to_usd(cad):
-    cad = int(cad.lower().replace('cad', ''))
+def get_cad_exchange_rate():
+    url = "https://open.er-api.com/v6/latest/USD"
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        data = response.json()
+        cad_rate = data["rates"]["CAD"]
+        return cad_rate
+    else:
+        return None
+
+def cad_to_usd(cad, rate):
+    cad = float(cad.lower().replace('cad', ''))
     # Change to import what the current exchange rate is
-    usd = cad * 0.69
-    return f"{cad}CAD -> {round(usd, 2)}USD"
+    usd = cad / rate
+    return f"{cad:.2f}CAD -> {round(usd, 2):.2f}USD"
     
 
-def usd_to_cad(usd):
-    usd = int(usd.lower().replace('usd', ''))
+def usd_to_cad(usd, rate):
+    usd = float(usd.lower().replace('usd', ''))
     # Change to import what the current exchange rate is
-    cad = usd * 1.44
-    return f"{usd}USD -> {round(cad, 3)}CAD"
+    cad = usd * rate
+    return f"{usd:.2f}USD -> {round(cad, 2):.2f}CAD"
 
 # Regex
-cad = r"\d+[.]?\d+\s?CAD(?!\S)"
-usd = r"\d+[.]?\d+\s?USD(?!\S)"
+# Money requires minimum 2 digits
+cad = r"\d*[.]?\d+\s?CAD(?!\S)"
+usd = r"\d*[.]?\d+\s?USD(?!\S)"
 
-f = r"\d+\s?F(?!\S)"
-c = r"\d+\s?C(?!\S)"
+f = r"[-]?\d*[.]?\d+\s?F(?!\S)"
+c = r"[-]?\d*[.]?\d+\s?C(?!\S)"
 
 # Compiled Patterns
 f_pattern = re.compile(f, re.IGNORECASE)
@@ -45,10 +58,15 @@ cad_pattern = re.compile(cad, re.IGNORECASE)
 class Client(Client):
     # Predefined function: This will be run whenever the bot turns on
     async def on_ready(self):
+        global cad_rate
         print(f'Logged on as {self.user}!')
-    
+        cad_rate = get_cad_exchange_rate()
+
+        if cad_rate != None:
+            print(f'Current USD to CAD Rate is {cad_rate}')
+        
     # Predefined function: When message is sent to server, this is called
-    async def on_message(self, message):
+    async def on_message(self, message):    
         # This keeps bot from replying to itself
         if message.author == self.user:
             return
@@ -74,11 +92,11 @@ class Client(Client):
             
             if usd_money != None:
                 for i in usd_money:
-                    amounts.append(usd_to_cad(i))
+                    amounts.append(usd_to_cad(i, cad_rate))
                 
             if cad_money != None:
                 for i in cad_money:
-                    amounts.append(cad_to_usd(i))
+                    amounts.append(cad_to_usd(i, cad_rate))
             
             converted_amounts = ""
             for x in amounts:
